@@ -197,45 +197,8 @@ class Pow(Op):
         x = self.inputs[0]
         y = self.inputs[1]
         return d * np.array([y * (x ** (y - 1)), self.out * np.log(x)])
-
-
-c1 = PlaceHolder()
-c2 = PlaceHolder()
-c3 = PlaceHolder()
-c4 = PlaceHolder()
-c5 = PlaceHolder()
-c6 = PlaceHolder()
-c7 = PlaceHolder()
-
-c1c2 = Multiply()([c1, c2])
-addc1c2 = Add()([c1c2, c3, c4])
-
-c5c6 = Pow()([c5, c6])
-addc5c6 = Add()([c5c6, c7])
-
-out = Add()([addc1c2, addc5c6])
-
-graph = Graph([c1, c2, c3, c4, c5, c6, c7], out)
-graph.condense(out)
-
-print(graph.f([2, 5, 2, 3, 2, 2, 1]))
-graph.backprop(out, 1)
-print(addc1c2.gradient)
-
-# x = PlaceHolder()
-# c2 = PlaceHolder()
-# c3 = PlaceHolder()
-# c4 = PlaceHolder()
-
-# y = Add()([x, c2])
-# z = Pow()([y, c3])
-# z = Multiply()([z, c4])
-
-# graph = Graph([x, c2, c3, c4], z)
-# graph.condense(z)
-
-# print(graph.f([np.ones((2, 2)), 2, 2, 3]))
-
+"""
+Example:
 c1 = PlaceHolder()
 c2 = PlaceHolder()
 c3 = PlaceHolder()
@@ -250,3 +213,4 @@ graph.condense(y)
 print(graph.f([1, 2]))
 graph.backprop(y, 1)
 print(x.gradient)
+"""
