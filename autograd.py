@@ -27,7 +27,7 @@ class Node(object):
         return self.op.f([node.evaluate() for node in self.input_nodes])
 
     def set_derivative(self, gradient):
-        self.gradient += gradient
+        self.gradient = gradient
 
     def get_derivative(self):
         return self.gradient
@@ -128,17 +128,29 @@ class Graph(Op):
             next_inputs = layer_out
         return layer_out[0]
 
+    # def backprop(self, node, d):
+    #     d = node.op.derivative(d)
+    #     for i, input_node in enumerate(node.input_nodes):
+    #         if isinstance(input_node, PlaceHolder):
+    #             gradient = d[i]
+    #         else:
+    #             gradient = input_node.op.derivative(d[i])
+    #         print(gradient)
+    #         input_node.set_derivative(gradient)
+    #         if not isinstance(input_node, PlaceHolder) and not isinstance(input_node.op, Graph):
+    #             self.backprop(input_node, gradient)
+    
     def backprop(self, node, d):
-        d = np.tile(node.op.derivative(d), (len(node.input_nodes),))
-        for i, input_node in enumerate(node.input_nodes):
-            if isinstance(input_node, PlaceHolder):
-                gradient = d[i]
-            else:
-                gradient = input_node.op.derivative(d[i])
-            input_node.set_derivative(gradient)
-            if not isinstance(input_node, PlaceHolder):
-                self.backprop(input_node, gradient)
-
+        d = node.op.derivative(d)
+        if not isinstance(node.op, Graph):
+            for i, input_node in enumerate(node.input_nodes):
+                input_node.set_derivative(d[i])
+                if not isinstance(input_node, PlaceHolder): #and not input_node.sub_graph:
+                    gradient = self.backprop(input_node, input_node.gradient)
+    
+    def derivative(self, d):
+        self.backprop(self.output_node, d)
+        return np.array([node.gradient for node in self.input_nodes])
 
 class Add(Op):
     def f(self, inputs):
@@ -197,20 +209,76 @@ class Pow(Op):
         x = self.inputs[0]
         y = self.inputs[1]
         return d * np.array([y * (x ** (y - 1)), self.out * np.log(x)])
-"""
-Example:
-c1 = PlaceHolder()
-c2 = PlaceHolder()
-c3 = PlaceHolder()
 
-x = Add()([c1, c2])
 
-y = Add()([x, x])
+# c1 = PlaceHolder()
+# c2 = PlaceHolder()
+# c3 = PlaceHolder()
+# c4 = PlaceHolder()
+# c5 = PlaceHolder()
+# c6 = PlaceHolder()
+# c7 = PlaceHolder()
 
-graph = Graph([c1, c2], y)
-graph.condense(y)
+# c1c2 = Multiply()([c1, c2])
+# addc1c2 = Add()([c1c2, c3, c4])
 
-print(graph.f([1, 2]))
-graph.backprop(y, 1)
-print(x.gradient)
-"""
+# c5c6 = Pow()([c5, c6])
+# addc5c6 = Add()([c5c6, c7])
+
+# out = Multiply()([addc1c2, addc5c6])
+
+# graph = Graph([c1, c2, c3, c4, c5, c6, c7], out)
+# print(graph.condense(out))
+
+# print(graph.f([2, 5, 2, 3, 2, 2, 1]))
+# graph.backprop(out, 1)
+# print(addc5c6.gradient)
+
+# x = PlaceHolder()
+# c2 = PlaceHolder()
+# c3 = PlaceHolder()
+# c4 = PlaceHolder()
+
+# y = Add()([x, c2])
+# z = Pow()([y, c3])
+# z = Multiply()([z, c4])
+
+# graph = Graph([x, c2, c3, c4], z)
+# graph.condense(z)
+
+# print(graph.f([np.ones((2, 2)), 2, 2, 3]))
+
+# c1 = PlaceHolder()
+# c2 = PlaceHolder()
+# c3 = PlaceHolder()
+
+# x = Add()([c1, c2])
+
+# y = Add()([x, x])
+
+# graph = Graph([c1, c2], y)
+# graph.condense(y)
+
+# print(graph.f([1, 2]))
+# graph.backprop(y, 1)
+# print(x.gradient)
+
+
+# c1 = PlaceHolder()
+# c2 = PlaceHolder()
+# c3 = PlaceHolder()
+# c4 = PlaceHolder()
+
+# x = Pow()([c1, c2])
+# x2 = Add()([x, c3])
+# graph1 = Graph([c1, c2, c3], x2)
+# graph1.condense(x2)
+
+# y = graph1([c1, c2, c3])
+# z = Add()([y, c4])
+# graph2 = Graph([c1, c2, c3, c4], z)
+# graph2.condense(z)
+
+# print(graph2.f([2, 2, 3, 4]))
+# graph2.backprop(z, 1)
+# print("c1", c1.gradient)
