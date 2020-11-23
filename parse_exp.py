@@ -14,39 +14,52 @@ def parse(placeholders, fns, sub_exps):
         '-' : 0,
         ag.Multiply : 1,
         '/' : 1,
-        ag.Pow : 2
+        ag.Pow : 2,
+        ag.Graph : 3
     }
 
     last_func = None
+    last_idx = 0
    
     inputs = [placeholders.copy()]
-
+    
+    dummies = inputs[0].copy()
     for sub_exp in sub_exps:
         input_idxs = slice(sub_exp[0], sub_exp[1] + 1)
         fn_idxs = slice(sub_exp[0], sub_exp[1])
-        sub_graph, out = parse([inpt for inpt in inputs[0][input_idxs] if inpt != '\n'], fns[fn_idxs], [])
-        del fns[fn_idxs]
-        inputs[0][input_idxs] = [out] + ['\n'] * (sub_exp[1] + 1 - sub_exp[0])
+        sub_graph, out = parse(dummies[input_idxs], fns[fn_idxs], [])
+        fns[fn_idxs] = sub_graph,
     
-    inputs[0] = [inpt for inpt in inputs[0] if inpt != '\n']
-    print(inputs)
+    # inputs[0] = [inpt for inpt in inputs[0] if inpt != '\n']
+    # print("inputs", inputs)
     
     while len(fns) > 0:
         done = []
         adj = 0
 
         if len(fns) == 1:
-            inputs.append(fns[0]()(inputs[-1]))
+            if isinstance(fns[0], ag.Graph):
+                inputs.append(fns[0](inputs[-1]))
+            else:
+                inputs.append(fns[0]()(inputs[-1]))
             fns.pop(0)
             ret = ag.Graph(placeholders, inputs[-1])
-            print(ret.condense(inputs[-1]))
+            ret.condense(inputs[-1])
             return ret, inputs[-1]
 
         for i in range(len(fns)):
             fn = fns[i]
 
             if last_func:
-                if precedence[fn] <= precedence[last_func]:
+                
+                if isinstance(last_func, ag.Graph):
+                    layer = inputs[-1].copy()
+                    layer[last_idx - adj : last_idx - adj + len(last_func.input_nodes)] = last_func(layer[last_idx - adj : last_idx - adj + len(last_func.input_nodes)]),
+                    inputs.append(layer)
+                    adj += 1
+                    done.append(last_idx)
+
+                elif precedence.get(fn) <= precedence.get(last_func):
                     layer = inputs[-1].copy()
                     layer[last_idx - adj : last_idx - adj + 2] = last_func()([layer[last_idx - adj], layer[last_idx - adj + 1]]),
                     inputs.append(layer)
@@ -70,7 +83,7 @@ def parse(placeholders, fns, sub_exps):
             fns.pop(j)
     
     ret = ag.Graph(placeholders, inputs[-1][0])
-    print(ret.condense(inputs[-1][0]))
+    ret.condense(inputs[-1][0])
     return ret, inputs[-1][0]
 
 def tokenize(expression):
@@ -118,7 +131,6 @@ def tokenize(expression):
                     else:
                         sub_idx.append(num_ph)
                 elif char == token[-1]:
-                    print("here")
                     sub_idx.append(num_ph + 1)
             
             if char == ')':
@@ -132,7 +144,7 @@ def tokenize(expression):
 
                 sub_idx.pop()
     
-    assert sub_level == 0, "Check your equation!"
+    assert sub_level == 0, "Check your expression!"
     sub_exps = list(set(sub_exps))
 
     return placeholders, fns, sub_exps
@@ -141,4 +153,4 @@ placeholders, fns, sub_exps = tokenize(input("Enter expression: "))
 
 graph, out = parse(placeholders, fns, sub_exps)
 
-print(graph.f([2, 1, 2, 3]))
+print(graph.f([2, 1, 2, 3, 5]))
